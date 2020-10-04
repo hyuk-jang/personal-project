@@ -1,0 +1,48 @@
+{
+  "name": "compressor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "nodemon ./bin/www.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^7.9.0",
+    "eslint-config-airbnb": "^18.2.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-jsx-a11y": "^6.3.1",
+    "eslint-plugin-prettier": "^3.1.4",
+    "eslint-plugin-react": "^7.20.6",
+    "jsdoc": "^3.6.5",
+    "prettier": "^2.1.1"
+  },
+  "dependencies": {
+    "base-model-jh": "^1.2.9",
+    "base-util-jh": "^1.2.8",
+    "body-parser": "^1.19.0",
+    "connect-flash": "^0.1.1",
+    "cookie-parser": "^1.4.5",
+    "debug": "^4.1.1",
+    "dotenv": "^8.2.0",
+    "ejs": "^3.1.5",
+    "express": "^4.17.1",
+    "express-async-handler": "^1.1.4",
+    "express-mysql-session": "^2.1.4",
+    "express-session": "^1.17.1",
+    "lodash": "^4.17.20",
+    "method-override": "^3.0.0",
+    "moment": "^2.29.0",
+    "passport": "^0.4.1",
+    "passport-local": "^1.0.0",
+    "request": "^2.88.2",
+    "serve-favicon": "^2.5.0",
+    "socket.io": "^2.3.0",
+    "split": "^1.0.1",
+    "uuid": "^8.3.0",
+    "xss": "^1.0.8"
+  }
+}
