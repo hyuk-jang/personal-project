@@ -74,7 +74,7 @@ router.get('/intersection', (req, res) => {
     //   break;
     default:
       router.use('/', selectedRouter);
-      BU.CLI('intersection', process.env.DEV_PAGE);
+      // BU.CLI('intersection', process.env.DEV_PAGE);
       _.isString(process.env.DEV_PAGE)
         ? res.redirect(`/${process.env.DEV_PAGE}`)
         : res.redirect('/');
