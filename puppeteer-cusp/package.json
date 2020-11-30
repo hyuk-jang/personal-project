@@ -1,0 +1,42 @@
+{
+  "name": "puppeteer-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "app": "./index.js"
+  },
+  "pkg": {
+    "assets": []
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js",
+    "build": "pkg . --out-path dist",
+    "build:win": "pkg . --out-path dist --targets node12-win-x64",
+    "build:linux": "pkg . --out-path dist --targets node12-linux-x64",
+    "build:macos": "pkg . --out-path dist --targets node12-macos-x64"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "base-util-jh": "^1.2.9",
+    "bluebird": "^3.7.2",
+    "cron": "^1.8.2",
+    "dotenv": "^8.2.0",
+    "lodash": "^4.17.20",
+    "puppeteer": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.159",
+    "eslint": "^7.6.0",
+    "eslint-config-airbnb": "^18.2.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-jsx-a11y": "^6.3.1",
+    "eslint-plugin-prettier": "^3.1.4",
+    "eslint-plugin-react": "^7.20.5",
+    "prettier": "^2.0.5"
+  }
+}
