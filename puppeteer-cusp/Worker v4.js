@@ -1,7 +1,5 @@
 const _ = require('lodash');
 
-const t = 'asdasds0';
-
 const Promise = require('bluebird');
 const puppeteer = require('puppeteer');
 const cron = require('cron');
@@ -15,7 +13,7 @@ module.exports = class {
    */
   constructor(config) {
     const {
-      homepage = 'http://www.cusppartner.com',
+      homepage = 'http://www.cusppartner.com/',
       isAutoStart = 1,
       startWatchTime = '',
       userList = [],
@@ -24,13 +22,7 @@ module.exports = class {
     } = config;
 
     // 설정 값 불러와서 정의
-    this.homepage =
-      _.last(homepage) === '/'
-        ? _.slice(homepage, 0, homepage.length - 1).join('')
-        : homepage;
-
-    console.dir(this.homepage);
-
+    this.homepage = homepage;
     this.isAutoStart = isAutoStart;
     this.startWatchTime = startWatchTime;
     this.userList = userList;
@@ -185,7 +177,7 @@ module.exports = class {
   async playWatch() {
     console.log('playWatch');
     // 다음에 볼 영상 주소 추출
-    await this.getNextMoviePath();
+    // await this.getNextMoviePath();
     // 우회하여 재생
     return this.playBypassWatch();
   }
@@ -224,8 +216,6 @@ module.exports = class {
     await this.page.goto(this.homepage);
     // 로그인 버그 처리
     await this.checkLoginUrl();
-
-    console.log('next movie Path:', this.watchMovieInfo.moviePathname);
 
     await this.page.goto(`${this.homepage}${this.watchMovieInfo.moviePathname}`);
     // 로그인 버그 처리
@@ -282,21 +272,29 @@ module.exports = class {
     );
 
     // 현재 영상을 다 봤을 경우
-    if (nowRunningSec >= maxRunningSec || progressGoalWatchPer > 105) {
+    if (nowRunningSec >= maxRunningSec) {
       // 영상 시간 업데이트, checkWatch에서 영상 시간 정보가 있다면 갱신됨
       this.watchMovieInfo.viewMin += nowWatchViewMin;
 
-      // 평가
-      await this.evaluateStar();
+      // 무한 반복
+      await this.page.evaluate(() => player.playVideo());
 
-      // 시청 완료 여부 체크
-      return this.checkWatchTime();
+      // 3 초 대기 후 재확인
+      await Promise.delay(1000 * 3);
+
+      return this.checkWatchStatus();
     }
 
-    // 3초 대기 후 재확인
+    // 영상 재생 중 달성 목표보다 5%(10분) 더 봤을 경우
+    if (progressGoalWatchPer > 105) {
+      // 영상 시간 업데이트, checkWatch에서 영상 시간 정보가 있다면 갱신됨
+      this.watchMovieInfo.viewMin += nowWatchViewMin;
+      return this.evaluateStar();
+    }
+    // 5초 대기 후 재확인
     await Promise.delay(1000 * 3);
     // 재귀 체크
-    return this.checkWatchStatus();
+    this.checkWatchStatus();
   }
 
   /**
@@ -333,7 +331,6 @@ module.exports = class {
    * Evaluate Star
    */
   async evaluateStar() {
-    console.log('evaluateStar');
     // 별점 주기
     const listHandle = await this.page.evaluateHandle(
       () => document.getElementById('stars').children,
@@ -341,7 +338,6 @@ module.exports = class {
     const properties = await listHandle.getProperties();
     const children = [];
 
-    // eslint-disable-next-line no-restricted-syntax
     for (const property of properties.values()) {
       const element = property.asElement();
       if (element) children.push(element);

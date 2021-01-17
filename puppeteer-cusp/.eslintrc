@@ -1,4 +1,9 @@
 {
+  "globals": {
+    "player": true,
+    "document": true,
+    "window": true
+  },
   "extends": ["airbnb", "prettier"],
   "plugins": ["prettier"],
   "rules": {

@@ -1,7 +1,5 @@
 const _ = require('lodash');
 
-const t = 'asdasds0';
-
 const Promise = require('bluebird');
 const puppeteer = require('puppeteer');
 const cron = require('cron');
@@ -15,27 +13,19 @@ module.exports = class {
    */
   constructor(config) {
     const {
-      homepage = 'http://www.cusppartner.com',
+      homepage = 'http://www.cusppartner.com/',
       isAutoStart = 1,
       startWatchTime = '',
       userList = [],
       headless = 1,
-      moviePath = '',
     } = config;
 
     // 설정 값 불러와서 정의
-    this.homepage =
-      _.last(homepage) === '/'
-        ? _.slice(homepage, 0, homepage.length - 1).join('')
-        : homepage;
-
-    console.dir(this.homepage);
-
+    this.homepage = homepage;
     this.isAutoStart = isAutoStart;
     this.startWatchTime = startWatchTime;
     this.userList = userList;
     this.headless = headless === 1;
-    this.moviePath = moviePath;
 
     // 스케줄러 정의
     this.watchMovieScheduler = null;
@@ -137,45 +127,49 @@ module.exports = class {
    */
   async checkWatchTime() {
     console.log('checkWatchTime');
-    // 홈으로 이동
-    await this.page.goto(this.homepage);
+    try {
+      // 홈으로 이동
+      await this.page.goto(this.homepage);
 
-    // 로그인 버그 처리
-    await this.checkLoginUrl();
+      // 로그인 버그 처리
+      await this.checkLoginUrl();
 
-    // 현재 본 시간 영역 추출 및 정제
-    /** @type {string} '00시간 00분 00초 시청' or '달성' */
-    const watchTime = await this.page.evaluate(
-      () => document.querySelector('.info-title').innerText,
-    );
+      // 현재 본 시간 영역 추출 및 정제
+      /** @type {string} '00시간 00분 00초 시청' or '달성' */
+      const watchTime = await this.page.evaluate(
+        () => document.querySelector('.info-title').innerText,
+      );
 
-    // 영상 시청 완료
-    if (_.trim(watchTime) === '달성') {
-      console.log('영상 시청 완료', this.user.id);
-      BU.logFile(`=======   ${this.user.id} Watch 종료`);
-      this.resetWatchInfo();
+      // 영상 시청 완료
+      if (_.trim(watchTime) === '달성') {
+        console.log('영상 시청 완료', this.user.id);
+        BU.logFile(`=======   ${this.user.id} Watch 종료`);
+        this.resetWatchInfo();
 
-      // Logout
-      await this.logout();
+        // Logout
+        await this.logout();
 
-      // 사용자의 오늘 영상 시청을 마무리 하였을 경우
-      return this.changeUser(true);
+        // 사용자의 오늘 영상 시청을 마무리 하였을 경우
+        return this.changeUser(true);
+      }
+
+      // 정규식을 이용하여 문자 제거
+      const strWatchTime = watchTime.replace(/(?!\w)./g, '');
+
+      if (strWatchTime.length === 6) {
+        const hour = Number(strWatchTime.slice(0, 2));
+        const min = Number(strWatchTime.slice(2, 4));
+        const sec = Number(strWatchTime.slice(4, 6));
+
+        // 본 시간 업데이트
+        this.watchMovieInfo.viewMin = _.round(hour * 60 + min + sec / 60, 1);
+        console.log('**************     시청 시간(분)', this.watchMovieInfo.viewMin);
+      }
+
+      return this.playWatch();
+    } catch (error) {
+      return this.checkWatchTime();
     }
-
-    // 정규식을 이용하여 문자 제거
-    const strWatchTime = watchTime.replace(/(?!\w)./g, '');
-
-    if (strWatchTime.length === 6) {
-      const hour = Number(strWatchTime.slice(0, 2));
-      const min = Number(strWatchTime.slice(2, 4));
-      const sec = Number(strWatchTime.slice(4, 6));
-
-      // 본 시간 업데이트
-      this.watchMovieInfo.viewMin = _.round(hour * 60 + min + sec / 60, 1);
-      console.log('**************     시청 시간(분)', this.watchMovieInfo.viewMin);
-    }
-
-    return this.playWatch();
   }
 
   /**
@@ -184,10 +178,14 @@ module.exports = class {
    */
   async playWatch() {
     console.log('playWatch');
-    // 다음에 볼 영상 주소 추출
-    await this.getNextMoviePath();
-    // 우회하여 재생
-    return this.playBypassWatch();
+    try {
+      // 다음에 볼 영상 주소 추출
+      await this.getNextMoviePath();
+      // 우회하여 재생
+      return this.playBypassWatch();
+    } catch (error) {
+      return this.playWatch();
+    }
   }
 
   /**
@@ -197,7 +195,7 @@ module.exports = class {
   async getNextMoviePath() {
     console.log('getNextMoviePath');
     // 영상 홈으로 이동
-    await this.page.goto(`${this.homepage}/kr/videoplays`);
+    await this.page.goto(`${this.homepage}kr/videoplays`);
     // 로그인 버그 처리
     await this.checkLoginUrl();
 
@@ -224,8 +222,6 @@ module.exports = class {
     await this.page.goto(this.homepage);
     // 로그인 버그 처리
     await this.checkLoginUrl();
-
-    console.log('next movie Path:', this.watchMovieInfo.moviePathname);
 
     await this.page.goto(`${this.homepage}${this.watchMovieInfo.moviePathname}`);
     // 로그인 버그 처리
@@ -281,22 +277,17 @@ module.exports = class {
       `===> 남은 시간(분): ${_.round(durationMin - nowWatchViewMin, 1)}`,
     );
 
-    // 현재 영상을 다 봤을 경우
-    if (nowRunningSec >= maxRunningSec || progressGoalWatchPer > 105) {
+    // 영상 재생 중 달성 목표보다 5%(10분) 더 봤거나 현재 영상을 다 봤을 경우
+    if (progressGoalWatchPer > 105 || nowRunningSec >= maxRunningSec) {
       // 영상 시간 업데이트, checkWatch에서 영상 시간 정보가 있다면 갱신됨
       this.watchMovieInfo.viewMin += nowWatchViewMin;
-
-      // 평가
-      await this.evaluateStar();
-
-      // 시청 완료 여부 체크
-      return this.checkWatchTime();
+      return this.evaluateStar();
     }
 
-    // 3초 대기 후 재확인
+    // 5초 대기 후 재확인
     await Promise.delay(1000 * 3);
     // 재귀 체크
-    return this.checkWatchStatus();
+    this.checkWatchStatus();
   }
 
   /**
@@ -333,7 +324,6 @@ module.exports = class {
    * Evaluate Star
    */
   async evaluateStar() {
-    console.log('evaluateStar');
     // 별점 주기
     const listHandle = await this.page.evaluateHandle(
       () => document.getElementById('stars').children,
@@ -341,7 +331,6 @@ module.exports = class {
     const properties = await listHandle.getProperties();
     const children = [];
 
-    // eslint-disable-next-line no-restricted-syntax
     for (const property of properties.values()) {
       const element = property.asElement();
       if (element) children.push(element);
@@ -406,7 +395,7 @@ module.exports = class {
       // 현재 본 시간
       viewMin: 0,
       // 이번에 볼 영상 경로
-      moviePathname: this.moviePath,
+      moviePathname: '',
     };
   }
 
@@ -459,7 +448,7 @@ module.exports = class {
   async logout() {
     console.log('===============   try Logout');
     // 홈으로 이동
-    await this.page.goto(`${this.homepage}/kr/videoplays`);
+    await this.page.goto(`${this.homepage}kr/videoplays`);
 
     await this.page.waitForTimeout(1000 * 3);
     // Logout
