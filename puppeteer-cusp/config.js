@@ -17,4 +17,13 @@ module.exports = {
       pw: 'kmy1255b12',
     },
   ],
+  moviePathList: [
+    'https://www.cusppartner.com/kr/video/58',
+    'https://www.cusppartner.com/kr/video/12',
+    'https://www.cusppartner.com/kr/video/13',
+    'https://www.cusppartner.com/kr/video/14',
+
+    // 'https://www.cusppartner.com/kr/video/2',
+    // 'https://www.cusppartner.com/kr/video/78',
+  ],
 };

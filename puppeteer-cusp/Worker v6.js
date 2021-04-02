@@ -18,8 +18,7 @@ module.exports = class {
       startWatchTime = '',
       userList = [],
       headless = 1,
-      // moviePath = '',
-      moviePathList = [],
+      moviePath = '',
     } = config;
 
     // 설정 값 불러와서 정의
@@ -32,11 +31,7 @@ module.exports = class {
     this.startWatchTime = startWatchTime;
     this.userList = userList;
     this.headless = headless === 1;
-    // this.moviePath = moviePath;
-
-    // FIXME: Worker v7 대충
-    /** @type {String[]} */
-    this.moviePathList = moviePathList;
+    this.moviePath = moviePath;
 
     // 스케줄러 정의
     this.watchMovieScheduler = null;
@@ -139,7 +134,7 @@ module.exports = class {
   async checkWatchTime() {
     console.log('checkWatchTime');
     // 홈으로 이동
-    await this.page.goto(`${this.homepage}/kr/mypage`);
+    await this.page.goto(this.homepage);
 
     // 로그인 버그 처리
     await this.checkLoginUrl();
@@ -147,15 +142,11 @@ module.exports = class {
     // 현재 본 시간 영역 추출 및 정제
     /** @type {string} '00시간 00분 00초 시청' or '달성' */
     const watchTime = await this.page.evaluate(
-      () => document.querySelector('em.time').innerText,
+      () => document.querySelector('.info-title').innerText,
     );
 
-    const [hour, min, sec] = watchTime
-      .split(' ')
-      .map(strTime => Number(strTime.slice(0, 2)));
-
     // 영상 시청 완료
-    if (hour >= 3) {
+    if (_.trim(watchTime) === '달성') {
       console.log('영상 시청 완료', this.user.id);
       BU.logFile(`=======   ${this.user.id} Watch 종료`);
       this.resetWatchInfo();
@@ -167,9 +158,18 @@ module.exports = class {
       return this.changeUser(true);
     }
 
-    // 본 시간 업데이트
-    this.watchMovieInfo.viewMin = _.round(hour * 60 + min + sec / 60, 1);
-    console.log('**************     시청 시간(분)', this.watchMovieInfo.viewMin);
+    // 정규식을 이용하여 문자 제거
+    const strWatchTime = watchTime.replace(/(?!\w)./g, '');
+
+    if (strWatchTime.length === 6) {
+      const hour = Number(strWatchTime.slice(0, 2));
+      const min = Number(strWatchTime.slice(2, 4));
+      const sec = Number(strWatchTime.slice(4, 6));
+
+      // 본 시간 업데이트
+      this.watchMovieInfo.viewMin = _.round(hour * 60 + min + sec / 60, 1);
+      console.log('**************     시청 시간(분)', this.watchMovieInfo.viewMin);
+    }
 
     return this.playWatch();
   }
@@ -181,8 +181,7 @@ module.exports = class {
   async playWatch() {
     console.log('playWatch');
     // 다음에 볼 영상 주소 추출
-    const isExist = await this.getNextMoviePath();
-    if (isExist) return;
+    await this.getNextMoviePath();
     // 우회하여 재생
     return this.playBypassWatch();
   }
@@ -193,26 +192,23 @@ module.exports = class {
    */
   async getNextMoviePath() {
     console.log('getNextMoviePath');
+    // 영상 홈으로 이동
+    await this.page.goto(`${this.homepage}/kr/videoplays`);
+    // 로그인 버그 처리
+    await this.checkLoginUrl();
 
-    // FIXME: Worker v7 대충
-    this.currMovieInfo = this.movieIterator.next();
+    // video pathname 추출
+    const pathname = await this.page.evaluate(() =>
+      document.querySelector('a.btn-hover[tabindex="0"]').getAttribute('href'),
+    );
 
-    if (this.currMovieInfo.done) {
-      console.log('모든 영상을 시청하였습니다.');
-      BU.logFile(`=======   ${this.user.id} Watch 종료`);
-      this.resetWatchInfo();
-
-      // Logout
-      await this.logout();
-
-      // 사용자의 오늘 영상 시청을 마무리 하였을 경우
-
-      this.changeUser(true);
-
-      return true;
+    // Fail Load pathname
+    if (pathname.includes('/kr/video') === false) {
+      return this.getNextMoviePath();
     }
 
-    this.watchMovieInfo.moviePathname = this.currMovieInfo.value;
+    // 볼 영상경로 업데이트
+    this.watchMovieInfo.moviePathname = pathname;
   }
 
   /**
@@ -227,7 +223,7 @@ module.exports = class {
 
     console.log('next movie Path:', this.watchMovieInfo.moviePathname);
 
-    await this.page.goto(this.watchMovieInfo.moviePathname);
+    await this.page.goto(`${this.homepage}${this.watchMovieInfo.moviePathname}`);
     // 로그인 버그 처리
     await this.checkLoginUrl();
 
@@ -288,12 +284,11 @@ module.exports = class {
 
     // 현재 영상을 다 봤을 경우
     if (nowRunningSec >= maxRunningSec - extraTime || remainMin < 0) {
-      await this.page.waitForTimeout(1000 * extraTime);
-
       // 영상 시간 업데이트, checkWatch에서 영상 시간 정보가 있다면 갱신됨
       this.watchMovieInfo.viewMin += nowWatchViewMin;
 
-      await this.page.evaluate(() => document.querySelector('.close').click());
+      // 평가
+      await this.evaluateStar();
 
       // 시청 완료 여부 체크
       return this.checkWatchTime();
@@ -342,7 +337,7 @@ module.exports = class {
     console.log('evaluateStar');
     // 별점 주기
     const listHandle = await this.page.evaluateHandle(
-      () => document.querySelector('.starpointWrap').children,
+      () => document.getElementById('stars').children,
     );
     const properties = await listHandle.getProperties();
     const children = [];
@@ -406,16 +401,13 @@ module.exports = class {
    * 영상 시청 정보 초기화
    */
   resetWatchInfo() {
-    // FIXME: Worker v7 대충
-    this.movieIterator = this.moviePathList[Symbol.iterator]();
-
     this.watchMovieInfo = {
       // 최종 볼 시간
       durationMin: 180,
       // 현재 본 시간
       viewMin: 0,
       // 이번에 볼 영상 경로
-      moviePathname: '',
+      moviePathname: this.moviePath,
     };
   }
 
@@ -468,7 +460,7 @@ module.exports = class {
   async logout() {
     console.log('===============   try Logout');
     // 홈으로 이동
-    await this.page.goto(`${this.homepage}/kr`);
+    await this.page.goto(`${this.homepage}/kr/videoplays`);
 
     await this.page.waitForTimeout(1000 * 3);
     // Logout
