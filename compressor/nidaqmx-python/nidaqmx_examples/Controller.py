@@ -39,7 +39,7 @@ class Controller:
         pass
 
     def calcChecksum256(self, strData):
-        print('strData', strData)
+        # print('strData', strData)
         # try:
         hChecksum = hex(sum(bytes(strData, 'ascii')) % 256)[2:].zfill(2)
 

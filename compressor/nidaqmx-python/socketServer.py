@@ -134,9 +134,9 @@ def onData(client_socket, controllerList):
     modelType = data[9: 13]
     slotSerial = data[13: 21]
 
-    print('cDaqSerial', cDaqSerial)
-    print('modelType', modelType)
-    print('slotSerial', slotSerial)
+    # print('cDaqSerial', cDaqSerial)
+    # print('modelType', modelType)
+    # print('slotSerial', slotSerial)
 
     # M(계측), C(제어)
     fnCode = data[21:22]
@@ -155,7 +155,7 @@ def onData(client_socket, controllerList):
     selectedcontrollerList = list(
         filter(lambda controller: controller.getSlotSerial() == slotSerial.decode().upper(), controllerList))
 
-    print(selectedcontrollerList)
+    # print(selectedcontrollerList)
 
     # 존재하지 않을 경우 무시
     if len(selectedcontrollerList) == 0:
